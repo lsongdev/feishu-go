@@ -298,18 +298,7 @@ func (c *Client) handleDataFrame(frame *FramePB) {
 	}
 
 	// log.Printf("[WebSocket] 收到事件：%s", eventMsg.Header.EventType)
-
-	// 调用事件处理器
-	c.mu.Lock()
-	handler := c.wsHandler
-	c.mu.Unlock()
-
-	if handler != nil {
-		if err := handler(&eventMsg); err != nil {
-			log.Printf("[WebSocket] 事件处理失败：%v", err)
-		}
-	}
-
+	c.IncomingMessage <- &eventMsg
 	c.sendResponse(frame, http.StatusOK)
 }
 
@@ -389,7 +378,6 @@ func (c *Client) reconnectWebSocket(ctx context.Context) error {
 			return ctx.Err()
 		}
 	}
-
 	var i = 0
 	for {
 		log.Printf("[WebSocket] 尝试重连：%d/%d", i+1, c.WSConfig.ReconnectCount)
@@ -438,31 +426,16 @@ func headersToMap(headers []Header) map[string]string {
 
 // StartWithContext 启动 WebSocket 连接并接收事件（阻塞）
 // 可通过 ctx 控制退出
-func (c *Client) Start(ctx context.Context, fn EventHandler) error {
-	c.mu.Lock()
-	c.wsHandler = fn
-	c.mu.Unlock()
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	err := c.connectWebSocket(ctx)
+func (c *Client) Start(ctx context.Context) (err error) {
+	err = c.connectWebSocket(ctx)
 	if err != nil {
 		log.Printf("[WebSocket] 连接失败：%v", err)
 		if err = c.reconnectWebSocket(ctx); err != nil {
-			// 如果是 context 取消导致的错误，直接返回
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
 			return err
 		}
 	}
-
 	go c.pingLoop(ctx)
-
-	// 等待上下文取消
-	<-ctx.Done()
-	return ctx.Err()
+	return
 }
 
 // Close 关闭 WebSocket 连接

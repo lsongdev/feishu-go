@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/lsongdev/feishu-go/feishu"
 )
@@ -29,29 +27,13 @@ func main() {
 		log.Fatalf("获取 token 失败：%v", err)
 	}
 	client.SetAccessToken(tokenResp.TenantAccessToken)
-	log.Println("已获取 tenant_access_token", tokenResp)
+	// log.Println("已获取 tenant_access_token", tokenResp)
 
-	// 创建可取消的上下文
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx := context.Background()
+	client.Start(ctx)
 
-	// 监听退出信号
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		<-sigChan
-		log.Println("收到退出信号，正在关闭...")
-		cancel() // 取消上下文
-		client.Close()
-	}()
-
-	// 启动 WebSocket 连接（阻塞）
-	if err := client.Start(ctx, handleEvent); err != nil {
-		if err == context.Canceled {
-			log.Println("WebSocket 已正常关闭")
-		} else {
-			log.Fatalf("WebSocket 错误：%v", err)
-		}
+	for event := range client.IncomingMessage {
+		handleEvent(event)
 	}
 }
 
@@ -104,14 +86,27 @@ func handleMessageReceive(event *feishu.EventMessage) error {
 		} else {
 			log.Printf("发送表情成功：%v", res)
 		}
-
 		replyMessage := feishu.NewTextMessage(replyText)
 		if res, err := client.SendReplyMessage(messageID, &replyMessage); err != nil {
 			log.Printf("发送回复失败：%v, res=%v", err, res)
 		} else {
 			log.Printf("发送回复成功：%v", res)
 		}
-	}
 
+		if text == "/image" {
+			file, _ := os.Open("/Users/Lsong/Desktop/leaf.png")
+			defer file.Close()
+			resp, err := client.UploadImage("message", file)
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Println("Image Key:", resp.Data.ImageKey)
+			imageMessage := feishu.NewImageMessage(resp.Data.ImageKey)
+			imageMessage.ReceiveID = "553d5845"
+			imageMessage.ReceiveIdType = "user_id"
+			resp2, err := client.SendMessage(&imageMessage)
+			log.Println(resp2, err)
+		}
+	}
 	return nil
 }

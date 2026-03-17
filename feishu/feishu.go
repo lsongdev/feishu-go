@@ -22,10 +22,9 @@ type Config struct {
 type Client struct {
 	*Config
 	*http.Client
-	ws *websocket.Conn
-	// wsURL     string
-	wsHandler EventHandler
-	mu        sync.Mutex
+	ws              *websocket.Conn
+	mu              sync.Mutex
+	IncomingMessage chan *EventMessage
 }
 
 type ResponseBase struct {
@@ -35,8 +34,9 @@ type ResponseBase struct {
 
 func NewClient(config *Config) *Client {
 	return &Client{
-		Config: config,
-		Client: http.DefaultClient,
+		Config:          config,
+		Client:          http.DefaultClient,
+		IncomingMessage: make(chan *EventMessage),
 	}
 }
 
@@ -111,11 +111,17 @@ func (c *Client) request(opts ...RequestOption) (out []byte, err error) {
 
 	var bodyReader io.Reader
 	if options.body != nil {
-		payload, err := json.Marshal(options.body)
-		if err != nil {
-			return nil, err
+		// 如果 body 是 io.Reader 类型，直接使用（用于 multipart/form-data）
+		if reader, ok := options.body.(io.Reader); ok {
+			bodyReader = reader
+		} else {
+			// 否则序列化为 JSON
+			payload, err := json.Marshal(options.body)
+			if err != nil {
+				return nil, err
+			}
+			bodyReader = bytes.NewBuffer(payload)
 		}
-		bodyReader = bytes.NewBuffer(payload)
 	}
 
 	url := options.base + options.path
@@ -124,7 +130,9 @@ func (c *Client) request(opts ...RequestOption) (out []byte, err error) {
 		return nil, err
 	}
 
-	req.Header.Set("content-type", options.contentType)
+	if options.contentType != "" {
+		req.Header.Set("content-type", options.contentType)
+	}
 	for k, v := range options.headers {
 		req.Header.Set(k, v)
 	}

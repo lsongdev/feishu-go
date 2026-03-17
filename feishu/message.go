@@ -44,6 +44,16 @@ func NewTextMessage(content string) (message Message) {
 	return
 }
 
+// https://open.feishu.cn/document/server-docs/im-v1/message-content-description/create_json#7111df05
+func NewImageMessage(imageKey string) (message Message) {
+	var data, _ = json.Marshal(map[string]string{
+		"image_key": imageKey,
+	})
+	message.Type = "image"
+	message.Content = string(data)
+	return
+}
+
 // https://open.feishu.cn/document/server-docs/im-v1/message/create
 func (c *Client) SendMessage(message *Message) (out *MessageResponse, err error) {
 	path := fmt.Sprintf("/im/v1/messages?receive_id_type=%s", message.ReceiveIdType)
