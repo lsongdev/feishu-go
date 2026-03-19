@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"sync"
 
@@ -120,6 +121,7 @@ func (c *Client) request(opts ...RequestOption) (out []byte, err error) {
 			if err != nil {
 				return nil, err
 			}
+			// log.Println(string(payload))
 			bodyReader = bytes.NewBuffer(payload)
 		}
 	}
@@ -143,13 +145,14 @@ func (c *Client) request(opts ...RequestOption) (out []byte, err error) {
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("response status code: %d", res.StatusCode)
-	}
-
 	data, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
+	}
+
+	if res.StatusCode != http.StatusOK {
+		err = fmt.Errorf("response status code (%d): %s", res.StatusCode, data)
+		log.Println(err)
 	}
 
 	var resp ResponseBase

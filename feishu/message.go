@@ -54,6 +54,40 @@ func NewImageMessage(imageKey string) (message Message) {
 	return
 }
 
+// https://open.feishu.cn/document/server-docs/im-v1/message-content-description/create_json#45e0953e
+func NewPostMessage(lang, title string, paragraphs ...[]PostTag) (message Message) {
+	var data, _ = json.Marshal(map[string]any{
+		lang: map[string]any{
+			"title":   title,
+			"content": paragraphs,
+		},
+	})
+	message.Type = "post"
+	message.Content = string(data)
+	return
+}
+
+type PostTag = map[string]any
+
+func NewPostParagraph(lines ...PostTag) []PostTag {
+	return lines
+}
+
+func NewMarkdownTag(content string) PostTag {
+	return PostTag{
+		"tag":  "md",
+		"text": content,
+	}
+}
+
+func NewMarkdownMessage(title, content string) Message {
+	return NewPostMessage("zh_cn", title,
+		NewPostParagraph(
+			NewMarkdownTag(content),
+		),
+	)
+}
+
 // https://open.feishu.cn/document/server-docs/im-v1/message/create
 func (c *Client) SendMessage(message *Message) (out *MessageResponse, err error) {
 	path := fmt.Sprintf("/im/v1/messages?receive_id_type=%s", message.ReceiveIdType)

@@ -78,20 +78,6 @@ func handleMessageReceive(event *feishu.EventMessage) error {
 
 		// Echo 消息：回复发送者（带引用）
 		// senderOpenID := msgEvent.Sender.SenderID.OpenID
-		messageID := msgEvent.Message.MessageID
-		replyText := fmt.Sprintf("Echo: %s", text)
-
-		if res, err := client.AddReaction(messageID, feishu.EMOJI_OK); err != nil {
-			log.Printf("发送表情失败：%v, res=%v", err, res)
-		} else {
-			log.Printf("发送表情成功：%v", res)
-		}
-		replyMessage := feishu.NewTextMessage(replyText)
-		if res, err := client.SendReplyMessage(messageID, &replyMessage); err != nil {
-			log.Printf("发送回复失败：%v, res=%v", err, res)
-		} else {
-			log.Printf("发送回复成功：%v", res)
-		}
 
 		if text == "/image" {
 			file, _ := os.Open("/Users/Lsong/Desktop/leaf.png")
@@ -107,6 +93,29 @@ func handleMessageReceive(event *feishu.EventMessage) error {
 			resp2, err := client.SendMessage(&imageMessage)
 			log.Println(resp2, err)
 		}
+
+		// if text == "/markdown" {
+		// 	message.ReceiveID = "553d5845"
+		// 	message.ReceiveIdType = "user_id"
+		// 	client.SendMessage(&message)
+		// }
+
+		messageID := msgEvent.Message.MessageID
+		replyText := fmt.Sprintf("Echo: %s", text)
+		// replyMessage := feishu.NewTextMessage(replyText)
+		replyMessage := feishu.NewMarkdownMessage(replyText, "# hello")
+		if res, err := client.SendReplyMessage(messageID, &replyMessage); err != nil {
+			log.Printf("发送回复失败：%v, res=%v", err, res)
+		} else {
+			log.Printf("发送回复成功：%v", res)
+		}
+
+		if res, err := client.AddReaction(messageID, feishu.EMOJI_OK); err != nil {
+			log.Printf("发送表情失败：%v, res=%v", err, res)
+		} else {
+			log.Printf("发送表情成功：%v", res)
+		}
+
 	}
 	return nil
 }
